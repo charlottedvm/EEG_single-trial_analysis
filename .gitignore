@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# VS Code
+.vscode/
+
+# Grote EEG/data bestanden
+data/raw/
+data/preprocessed/
+data/derivatives/
+Internship/
+results/
+
+# Grote bestanden algemeen
+*.edf
+*.fif
+*.csv
+*.tsv
+*.json
