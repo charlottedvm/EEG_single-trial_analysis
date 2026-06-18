@@ -1,16 +1,16 @@
 # =============================================================================
 # pipeline.py — Hoofd-preprocessingscript voor de PEERS EEG dataset
 #
-# Volgorde per sessie:
-#   1. Laden + montage + filteren + resamplen + re-referentie
-#   2. Events laden + RT-filter + performance check
-#   3. Bad channel detectie op continue data + interpolatie
-#   4. ICA fitten + ICLabel
-#   5. Epochs aanmaken
-#   6. Bad channel detectie op epochs + herinterpolatie (indien nodig)
-#   7. Epochs opschonen: 500 µV → ICA toepassen → baseline → 200 µV
+# Steps per session:
+#   1. Load data + montage + filter + resample + re-reference
+#   2. Load events + RT-filter + performance check
+#   3. Detect bad channels on continuous data + interpolation
+#   4. Fit ICA + ICLabel
+#   5. Create epochs
+#   6. Detect bad channels on epochs + re-interpolation (if needed)
+#   7. Epochs cleaning: 500 µV → apply ICA → baseline correction → 200 µV
 #   8. ERP sanity check (FN400 / LPC)
-#   9. Opslaan als .fif
+#   9. Save as .fif
 # =============================================================================
 
 import gc
@@ -32,19 +32,19 @@ from functions.epochs import make_epochs
 
 
 # =============================================================================
-# Hoofd-loop
+# Main loop
 # =============================================================================
 for sub in cfg.get_subjects():
     for ses in cfg.get_sessions(sub):
 
         print(f"\n{'='*60}")
-        print(f"  Verwerken: {sub} | {ses}")
+        print(f"  Processing: {sub} | {ses}")
         print(f"{'='*60}")
 
-        # Sla over als al verwerkt
+        # Skip if already processed
         out = cfg.out_file(sub, ses)
         if out.exists() and not cfg.FORCE_REPROCESS:
-            print(f"  Al verwerkt, overgeslagen: {out}")
+            print(f"  Already processed, skipped: {out}")
             continue
 
         raw_p    = cfg.raw_path(sub, ses)
@@ -52,11 +52,11 @@ for sub in cfg.get_subjects():
         json_p   = cfg.json_path(sub, ses)
 
         if not Path(raw_p).exists():
-            print(f"  ⚠ Bestand niet gevonden, overgeslagen: {raw_p}")
+            print(f"  ⚠ File not found, skipped: {raw_p}")
             continue
 
         # ------------------------------------------------------------------
-        # Stap 1 — Laden, montage, filteren, resamplen, re-referentie
+        # Stap 1 — Load data, montage, filter, resample, re-reference
         # ------------------------------------------------------------------
         raw = load_and_prepare_raw(raw_p, json_p)
         if raw is None:
@@ -71,7 +71,7 @@ for sub in cfg.get_subjects():
 
         events, skip_reason = filter_events(events)
         if skip_reason:
-            print(f"  ⚠ Sessie overgeslagen: {skip_reason}")
+            print(f"  ⚠ Session skipped: {skip_reason}")
             del raw
             gc.collect()
             continue
@@ -79,7 +79,7 @@ for sub in cfg.get_subjects():
         events_mne = make_mne_events(events, raw.info['sfreq'])
 
         # ------------------------------------------------------------------
-        # Stap 3 — Bad channels op continue data
+        # Stap 3 — Bad channels on continuous data
         # ------------------------------------------------------------------
         initial_bad = detect_bad_channels(raw)
         interpolate_bad_channels(raw, initial_bad)
@@ -90,7 +90,7 @@ for sub in cfg.get_subjects():
         ica = run_ica(raw)
 
         # ------------------------------------------------------------------
-        # Stap 5 — Eerste epochs aanmaken voor epoch-gebaseerde bad channel check
+        # Stap 5 — Create epochs for epoch-based bad channel check
         # ------------------------------------------------------------------
         import mne, numpy as np
         from config import EPOCH_TMIN, EPOCH_TMAX, REJECT_FIRST
@@ -108,7 +108,7 @@ for sub in cfg.get_subjects():
         n_total = len(epochs_tmp)
 
         # ------------------------------------------------------------------
-        # Stap 6 — Bad channels op epochs + herinterpolatie
+        # Stap 6 — Bad channels on epochs + re-interpolation
         # ------------------------------------------------------------------
         epoch_bad = detect_bad_channels_from_epochs(epochs_tmp, n_total)
         del epochs_tmp
@@ -119,19 +119,19 @@ for sub in cfg.get_subjects():
             interpolate_bad_channels(raw, epoch_bad)
 
         # ------------------------------------------------------------------
-        # Stap 7 — Definitieve epochs + opschonen (500 µV → ICA → 200 µV)
+        # Stap 7 — Definitive epochs + cleaning (500 µV → ICA → 200 µV)
         # ------------------------------------------------------------------
         epochs = make_epochs(raw, events_mne, events, ica)
 
         if epochs is None:
-            print(f"  ⚠ Geen epochs over, sessie overgeslagen.")
+            print(f"  ⚠ No epochs left, session skipped.")
             del raw, ica
             gc.collect()
             continue
 
         n_final = len(epochs)
         if n_final < 0.5 * n_total:
-            print(f"  ⚠ Minder dan 50% van trials over ({n_final}/{n_total})")
+            print(f"  ⚠ Less than 50% of trials left ({n_final}/{n_total})")
 
         print(f"\n  Final epochs: {n_final}")
 
@@ -140,7 +140,7 @@ for sub in cfg.get_subjects():
         # ------------------------------------------------------------------
         sanity = run_sanity_checks(epochs, sub, ses)
         if not sanity.get('pass', False):
-            print(f"  ⚠ ERP sanity check niet geslaagd — data controleren.")
+            print(f"  ⚠ ERP sanity check failed -> check data.")
 
         # ------------------------------------------------------------------
         # Stap 9 — Opslaan
@@ -151,4 +151,4 @@ for sub in cfg.get_subjects():
         del raw, epochs, ica
         gc.collect()
 
-print("\n\nKlaar.")
+print("\n\nDone.")

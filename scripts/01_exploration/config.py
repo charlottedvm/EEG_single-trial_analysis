@@ -1,5 +1,5 @@
 # =============================================================================
-# config.py — Shared constants for the PEERS dataset pipeline
+# config.py -> Shared constants for the PEERS dataset pipeline for this project
 # =============================================================================
 
 # Subjects & sessions

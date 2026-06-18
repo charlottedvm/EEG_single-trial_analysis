@@ -14,21 +14,21 @@ from config import (
 
 def load_and_prepare_raw(raw_path: str, json_path: str) -> mne.io.Raw | None:
     """
-    Laadt een EDF-bestand en voert de basispreprocessing uit:
-      1. Kanaal E129 hernoemen naar Cz
-      2. Montage instellen (alleen HydroCel-129 ondersteund)
-      3. Gezichtskanalen en Cz droppen
-      4. Laden in geheugen
+    Load an EDF file and perform the basic preprocessing:
+      1. Channel E129 rename to Cz
+      2. Mount setup (only HydroCel-129 supported)
+      3. Face channels and Cz drop
+      4. Load into memory
       5. Notch-filter (50 Hz)
-      6. Bandbreedte-filter (HIGH_PASS – LOW_PASS Hz)
-      7. Resamplen naar RESAMPLE Hz
-      8. Re-referentie naar mastoïden
+      6. Bandwidth-filter (0.1 - 30 Hz)
+      7. Resampling to 256 Hz
+      8. Re-reference linked mastoids (E57 and E100)
 
-    Returns het preprocessed Raw object, of None als de montage niet herkend wordt.
+    Returns the preprocessed Raw object, or None if the montage is not recognized.
     """
     raw = mne.io.read_raw_edf(raw_path, preload=False, verbose=False)
 
-    # E129 is de referentie-elektrode, heet 'Cz' in de elektroden-bestanden
+    # E129 is the reference electrode, is named 'Cz' in the electrode files
     if 'E129' in raw.ch_names:
         raw.rename_channels({'E129': 'Cz'})
 
@@ -38,24 +38,24 @@ def load_and_prepare_raw(raw_path: str, json_path: str) -> mne.io.Raw | None:
 
     montage_name = eeg_json.get('CapManufacturersModelName', '')
     if 'HydroCel' not in montage_name:
-        print(f"  ⚠ Onbekende montage: '{montage_name}', sessie overgeslagen.")
+        print(f"  ⚠ unknown montage: '{montage_name}', skip session.")
         return None
 
     montage = mne.channels.make_standard_montage(MONTAGE_NAME)
     raw.set_montage(montage, match_case=False, on_missing='ignore')
     print(f"  Montage: {MONTAGE_NAME}")
 
-    # Gezichtskanalen droppen (inclusief Cz — SD = 0 na re-referencing)
+    # Drop face channels (inclusive Cz — SD = 0 after re-referencing)
     to_drop = [ch for ch in FACE_CHANNELS + ['Cz'] if ch in raw.ch_names]
     raw.drop_channels(to_drop)
-    print(f"  Gedropt: {len(to_drop)} kanalen (gezicht + Cz)")
+    print(f"  Dropped: {len(to_drop)} channels (face + Cz)")
 
-    # Filteren, resamplen en re-referentie
+    # Filter, resampling en re-referencing
     raw.load_data()
     raw.notch_filter(freqs=NOTCH_FREQ, picks='eeg', verbose=False)
     raw.filter(HIGH_PASS, LOW_PASS, verbose=False)
     raw.resample(RESAMPLE, npad='auto')
     raw.set_eeg_reference(ref_channels=MASTOIDS, verbose=False)
-    print(f"  Gefilterd ({HIGH_PASS}–{LOW_PASS} Hz), geresamplet naar {RESAMPLE} Hz, ref → mastoïden")
+    print(f"  Filtered ({HIGH_PASS}–{LOW_PASS} Hz), resampled to {RESAMPLE} Hz, ref → mastoids")
 
     return raw

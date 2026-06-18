@@ -1,5 +1,5 @@
 # =============================================================================
-# functions/bad_channels.py — Bad channel detectie en interpolatie
+# functions/bad_channels.py — Bad channel detection and interpolation
 # =============================================================================
 
 from collections import Counter
@@ -17,15 +17,15 @@ from config import (
 
 def detect_bad_channels(raw: mne.io.Raw) -> list[str]:
     """
-    Detecteert slechte kanalen op basis van continue data via drie criteria:
+    Detects bad channels based on continuous data via three criteria:
 
-      1. Drift     — kanaalgemiddelde > BAD_CH_SD_FACTOR × SD van alle gemiddelden
-      2. Amplitude — meer dan BAD_CH_AMP_FRAC van de tijdstappen > BAD_CH_AMP_THRESH µV
-      3. Variantie — kanaal-SD > BAD_CH_VAR_SD_FACTOR × SD van alle kanaal-SDs
+      1. Drift     — channel mean > BAD_CH_SD_FACTOR × SD of all means
+      2. Amplitude — more than BAD_CH_AMP_FRAC of time points > BAD_CH_AMP_THRESH µV
+      3. Variance — channel-SD > BAD_CH_VAR_SD_FACTOR × SD of all channel-SDs
 
-    Beschermde kanalen (gezicht, mastoïden, Cz) worden nooit teruggegeven.
+    Protected channels (face, mastoids, Cz) are never returned.
 
-    Returns lijst van slechte kanaalnamen.
+    Returns list of bad channel names.
     """
     data_arr    = raw.get_data(picks='eeg')
     eeg_picks   = mne.pick_types(raw.info, eeg=True)
@@ -57,22 +57,22 @@ def detect_bad_channels(raw: mne.io.Raw) -> list[str]:
     print(f"  Bad channels (continue data):")
     print(f"    Drift:       {bad_sd or '—'}")
     print(f"    Amplitude:   {bad_amp or '—'}")
-    print(f"    Variantie:   {bad_var or '—'}")
-    print(f"    Gecombineerd: {combined or '—'}")
+    print(f"    Variance:    {bad_var or '—'}")
+    print(f"    Combined:    {combined or '—'}")
 
     return combined
 
 
 def interpolate_bad_channels(raw: mne.io.Raw, bad_channels: list[str]) -> None:
     """
-    Markeert en interpoleert slechte kanalen in-place.
+    Marks and interpolates bad channels in-place.
     """
     if not bad_channels:
         return
 
     raw.info['bads'] = bad_channels
     raw.interpolate_bads(reset_bads=True)
-    print(f"  Geïnterpoleerd: {bad_channels}")
+    print(f"  Interpolated: {bad_channels}")
 
 
 def detect_bad_channels_from_epochs(
@@ -80,11 +80,11 @@ def detect_bad_channels_from_epochs(
     n_total_trials: int
 ) -> list[str]:
     """
-    Detecteert slechte kanalen op basis van epochs die afgekeurd worden door
-    de amplitude-drempel (REJECT_FIRST). Een kanaal is 'bad' als het in meer
-    dan BAD_CH_EPOCH_THRESHOLD van de epochs de oorzaak van afkeuring is.
+    Detects bad channels based on epochs that are rejected by
+    the amplitude threshold (REJECT_FIRST). A channel is 'bad' if it is the cause of rejection in more
+    than BAD_CH_EPOCH_THRESHOLD of the epochs.
 
-    Returns lijst van kanaalnamen die geïnterpoleerd moeten worden.
+    Returns list of channel names that need to be interpolated.
     """
     epochs_tmp = epochs.copy()
     epochs_tmp.drop_bad(reject=REJECT_FIRST)
@@ -95,7 +95,7 @@ def detect_bad_channels_from_epochs(
 
     ch_counts = Counter(all_bad_chs)
 
-    print(f"  Meest afgewezen kanalen (500 µV):")
+    print(f"  Most rejected channels (500 µV):")
     for ch, count in ch_counts.most_common(10):
         pct = count / n_total_trials * 100
         print(f"    {ch}: {count} epochs ({pct:.1f}%)")

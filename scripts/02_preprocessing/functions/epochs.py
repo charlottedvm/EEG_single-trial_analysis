@@ -22,21 +22,21 @@ def make_epochs(
     ica: ICA,
 ) -> mne.Epochs | None:
     """
-    Maakt epochs aan en voert een drietraps opschoonprocedure uit:
+    Creates epochs and performs a three-step cleaning procedure:
 
-      Stap 1 — Eerste amplitude-rejectie (500 µV) om erge artefacten te verwijderen
-               vóór ICA wordt toegepast. Dit wordt ook gebruikt om slechte kanalen
-               per epoch te detecteren (zie bad_channels.detect_bad_channels_from_epochs).
+      Step 1 — First amplitude rejection (500 µV) to remove severe artifacts
+               before ICA is applied. This is also used to detect bad channels
+               per epoch (see bad_channels.detect_bad_channels_from_epochs).
 
-      Stap 2 — ICA toepassen (oog-componenten verwijderen)
+      Step 2 — Apply ICA (remove eye components)
 
-      Stap 3 — Baseline correctie + finale amplitude-rejectie (200 µV)
+      Step 3 — Baseline correction + final amplitude rejection (200 µV)
 
-    Returns het finale Epochs object, of None als er geen epochs overblijven.
+    Returns the final Epochs object, or None if no epochs remain.
 
-    Note: stap 2 (bad channel detectie op epochs + herinterpolatie) zit in
-    pipeline.py zodat raw.interpolate_bads() toegepast kan worden vóór het
-    opnieuw aanmaken van epochs.
+    Note: step 2 (bad channel detection on epochs + reinterpolation) is in
+    pipeline.py so that raw.interpolate_bads() can be applied before
+    recreating epochs.
     """
     event_id = {'target': 1, 'lure': 2}
 
@@ -56,7 +56,7 @@ def make_epochs(
     epochs = _create(raw)
     print(f"  Epochs voor opschonen: {len(epochs)}")
 
-    # Stap 1 — Eerste rejectie (500 µV)
+    # Step 1 — First rejection (500 µV)
     epochs.drop_bad(reject=REJECT_FIRST)
     print(f"  Epochs na 500 µV rejectie: {len(epochs)}")
 
@@ -64,17 +64,17 @@ def make_epochs(
         print("  ⚠ Geen epochs over na eerste rejectie.")
         return None
 
-    # Stap 2 — ICA toepassen
+    # Step 2 — Apply ICA
     ica.apply(epochs)
-    print(f"  ICA toegepast ({len(ica.exclude)} componenten verwijderd)")
+    print(f"  ICA applied ({len(ica.exclude)} components removed)")
 
-    # Stap 3 — Baseline + finale rejectie (200 µV)
+    # Step 3 — Baseline + final rejection (200 µV)
     epochs.apply_baseline(BASELINE)
     epochs.drop_bad(reject=REJECT_FINAL)
-    print(f"  Epochs na 200 µV rejectie (finaal): {len(epochs)}")
+    print(f"  Epochs  after 200 µV rejection (finaal): {len(epochs)}")
 
     if len(epochs) == 0:
-        print("  ⚠ Geen epochs over na finale rejectie.")
+        print("  ⚠ No epochs left after finale rejoction.")
         return None
 
     return epochs

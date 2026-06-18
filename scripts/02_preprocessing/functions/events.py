@@ -1,5 +1,5 @@
 # =============================================================================
-# functions/events.py — Events laden en preprocessen
+# functions/events.py -> Load and preprocess events en preprocessen
 # =============================================================================
 
 import numpy as np
@@ -10,17 +10,17 @@ from config import RT_MIN, RT_MAX, MIN_PERFORMANCE, MIN_TRIALS, EVENT_DICT
 
 def preprocess_events(events_raw: pd.DataFrame) -> pd.DataFrame:
     """
-    Voegt RT en correct toe aan een ruwe events DataFrame.
+    Adds RT correctly to the raw events dataframe.
 
-    Stappen:
-    - Splits stimuli (RECOG_TARGET / RECOG_LURE) en responses (RECOG_RESP)
-    - Koppelt elke stimulus aan de eerstvolgende respons binnen 5 seconden
-    - Berekent RT = onset_resp - onset_stimulus
-    - Bepaalt correct:
+    Steps:
+    - Split stimuli (RECOG_TARGET / RECOG_LURE) and responses (RECOG_RESP)
+    - Link each stimulus to the first response within 5 seconds
+    - Calculates RT = onset_resp - onset_stimulus
+    - Determines correct:
         * TARGET + old_new == 'OLD' → correct
         * LURE   + old_new == 'NEW' → correct
 
-    Returns een kopie van de stimulusrijen met extra kolommen: onset_resp, RT, correct.
+    Returns a copy of the stimulus rows with additional columns: onset_resp, RT, correct.
     """
     stimuli   = events_raw[events_raw['trial_type'].isin(['RECOG_TARGET', 'RECOG_LURE'])].copy()
     responses = events_raw[events_raw['trial_type'] == 'RECOG_RESP'][['onset']].copy()
@@ -47,42 +47,42 @@ def preprocess_events(events_raw: pd.DataFrame) -> pd.DataFrame:
         ).astype(int)
     else:
         merged['correct'] = np.nan
-        print("  ⚠ 'old_new' kolom niet gevonden — 'correct' staat op NaN.")
+        print("  ⚠ 'old_new' column not found, 'correct' is set to NaN.")
 
     return merged
 
 
 def filter_events(events: pd.DataFrame) -> tuple[pd.DataFrame | None, str | None]:
     """
-    Past performance- en RT-filters toe.
+    Applies performance and RT filters.
 
-    Returns (gefilterde DataFrame, None) bij succes,
-    of (None, reden) als de sessie overgeslagen moet worden.
+    Returns (filtered DataFrame, None) on success,
+    or (None, reason) if the session should be skipped.
     """
     performance = events['correct'].mean()
     print(f"  Performance: {performance:.2%}")
 
     if performance < MIN_PERFORMANCE:
-        return None, f"Lage performance ({performance:.2%} < {MIN_PERFORMANCE:.0%})"
+        return None, f"Low performance ({performance:.2%} < {MIN_PERFORMANCE:.0%})"
 
     total = len(events)
     events_rt = events[(events['RT'] > RT_MIN) & (events['RT'] < RT_MAX)].copy()
     n_removed = total - len(events_rt)
-    print(f"  Verwijderd door RT-filter: {n_removed} ({n_removed}/{total})")
+    print(f"  Removed by RT-filter: {n_removed} ({n_removed}/{total})")
 
     events_filtered = events_rt[events_rt['trial_type'].isin(EVENT_DICT)].copy()
     print(f"  Trials na filtering: {len(events_filtered)}")
 
     if len(events_filtered) < MIN_TRIALS:
-        return None, f"Te weinig trials ({len(events_filtered)} < {MIN_TRIALS})"
+        return None, f"Low number of trials ({len(events_filtered)} < {MIN_TRIALS})"
 
     return events_filtered, None
 
 
 def make_mne_events(events: pd.DataFrame, sfreq: float) -> np.ndarray:
     """
-    Zet een events DataFrame om naar een MNE events array (n × 3).
-    Kolomvolgorde: [sample, 0, event_id]
+    Converts an events DataFrame to an MNE events array (n × 3).
+    Column order: [sample, 0, event_id]
     """
     event_samples = (events['onset'] * sfreq).astype(int).values
     event_ids     = events['trial_type'].map(EVENT_DICT).values

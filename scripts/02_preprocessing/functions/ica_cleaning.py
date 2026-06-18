@@ -17,13 +17,13 @@ from config import (
 
 def run_ica(raw: mne.io.Raw) -> ICA:
     """
-    Fit ICA op een bandbreedte-gefilterde kopie van de data (1–100 Hz voor ICLabel),
-    labelt componenten met ICLabel, en markeert oog-componenten voor verwijdering.
+    Fits ICA on a broad band-pass filtered copy of the data (1-100 Hz for ICLabel),
+    labels components with ICLabel, and marks eye-components to remove.
 
-    De ICA is daarna klaar om toegepast te worden op epochs via ica.apply(epochs).
-    De ruwe data wordt niet aangepast.
+    The ICA is then ready to be applied to epochs via ica.apply(epochs).
+    The raw data is not modified.
 
-    Returns het gefitte en geconfigureerde ICA object.
+    Returns the fitted and configured ICA object.
     """
     # Aparte kopie voor ICA-fitting (ICLabel vereist 1–100 Hz)
     raw_ica = raw.copy().filter(ICA_HIGH_PASS, ICA_LOW_PASS, verbose=False)
@@ -38,7 +38,7 @@ def run_ica(raw: mne.io.Raw) -> ICA:
     )
 
     n_bad_seg = sum(1 for ann in raw_ica.annotations if ann['description'].startswith('BAD'))
-    print(f"  Slechte segmenten voor ICA: {n_bad_seg}")
+    print(f"  Bad segments for ICA: {n_bad_seg}")
 
     # ICA fitten
     ica = ICA(
@@ -53,7 +53,7 @@ def run_ica(raw: mne.io.Raw) -> ICA:
         warnings.simplefilter('ignore')
         ica.fit(raw_ica, verbose=False)
 
-    print(f"  ICA: {ica.n_components_} componenten gevonden")
+    print(f"  ICA: {ica.n_components_} components found")
 
     # Labelen met ICLabel
     ic_labels = label_components(raw_ica, ica, method='iclabel')
@@ -68,7 +68,7 @@ def run_ica(raw: mne.io.Raw) -> ICA:
         if 'eye' in lab.lower() and prob > ICA_EYE_PROB
     ]
 
-    print(f"\n  Componenten verwijderd: {eye_idx}")
+    print(f"\n  Components removed: {eye_idx}")
     ica.exclude = eye_idx
 
     del raw_ica
@@ -76,18 +76,18 @@ def run_ica(raw: mne.io.Raw) -> ICA:
 
 
 def _print_ica_summary(ic_labels: dict) -> None:
-    """Print een overzicht van ICA-labels en sanity checks."""
+    """Print a summary of ICA labels and sanity checks."""
     print("\n" + "=" * 40)
-    print("ICA COMPONENT OVERZICHT")
+    print("ICA component labels:")
     print("=" * 40)
 
     for i, (lab, prob) in enumerate(
         zip(ic_labels['labels'], ic_labels['y_pred_proba'])
     ):
-        print(f"  IC {i:02d}: {lab:10s} | kans = {prob:.2f}")
+        print(f"  IC {i:02d}: {lab:10s} | probability = {prob:.2f}")
 
     label_counts = Counter(ic_labels['labels'])
-    print("\n  Samenvatting:")
+    print("\n  Summary:")
     for k, v in label_counts.items():
         print(f"    {k}: {v}")
 
@@ -95,13 +95,13 @@ def _print_ica_summary(ic_labels: dict) -> None:
     print("\n  Sanity checks:")
     n_eye = sum(1 for lab in ic_labels['labels'] if 'eye' in lab.lower())
     if n_eye == 0:
-        print("    ⚠ Geen oogcomponenten gedetecteerd")
+        print("    ⚠ No eye components detected")
 
     if len(label_counts) == 1:
-        print("    ⚠ Alle componenten hebben hetzelfde label")
+        print("    ⚠ All components have the same label")
 
     low_conf = [p for p in ic_labels['y_pred_proba'] if p < 0.6]
     if len(low_conf) > len(ic_labels['y_pred_proba']) * 0.5:
-        print("    ⚠ Meer dan de helft van de classificaties heeft lage betrouwbaarheid")
+        print("    ⚠ More than half of the classifications have low reliability")
 
     print("=" * 40 + "\n")
