@@ -1,9 +1,9 @@
 import openneuro as on
 
 subjects = [
-    "sub-LTP063",
-    # "sub-LTP064",
-    # "sub-LTP065"
+    # "sub-LTP063",
+    # sub-LTP064",
+     "sub-LTP065"
 ]
 
 for sub in subjects:

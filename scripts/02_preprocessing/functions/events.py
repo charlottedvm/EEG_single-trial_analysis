@@ -10,26 +10,41 @@ from config import RT_MIN, RT_MAX, MIN_PERFORMANCE, MIN_TRIALS, EVENT_DICT
 
 def preprocess_events(events_raw: pd.DataFrame) -> pd.DataFrame:
     """
-    Adds RT correctly to the raw events dataframe.
+    Merge stimulus and response rows and calculate reaction times (RT).
 
-    Steps:
-    - Split stimuli (RECOG_TARGET / RECOG_LURE) and responses (RECOG_RESP)
-    - Link each stimulus to the first response within 5 seconds
-    - Calculates RT = onset_resp - onset_stimulus
-    - Determines correct:
-        * TARGET + old_new == 'OLD' → correct
-        * LURE   + old_new == 'NEW' → correct
+    Parameters
+    ----------
+    events_raw : pd.DataFrame
+        Raw events TSV loaded from BIDS dataset.
 
-    Returns a copy of the stimulus rows with additional columns: onset_resp, RT, correct.
+    Returns
+    -------
+    pd.DataFrame
+        Cleaned events with:
+        - onset
+        - RT
+        - correct (1 = correct, 0 = incorrect)
     """
-    stimuli   = events_raw[events_raw['trial_type'].isin(['RECOG_TARGET', 'RECOG_LURE'])].copy()
-    responses = events_raw[events_raw['trial_type'] == 'RECOG_RESP'][['onset']].copy()
 
-    stimuli   = stimuli.sort_values('onset').reset_index(drop=True)
+    # Select recognition stimuli
+    stimuli = events_raw[
+        events_raw['trial_type'].isin(['RECOG_TARGET', 'RECOG_LURE'])
+    ].copy()
+
+    # Select only real recognition responses
+    responses = events_raw[
+        events_raw['trial_type'] == 'RECOG_RESP'
+    ][['onset']].copy()
+
+    # Sort by onset
+    stimuli = stimuli.sort_values('onset').reset_index(drop=True)
     responses = responses.sort_values('onset').reset_index(drop=True)
+
+    # Rename response onset column
     responses = responses.rename(columns={'onset': 'onset_resp'})
 
-    merged = pd.merge_asof(
+    # Match each stimulus to the next response within 5 seconds
+    events_cleaned = pd.merge_asof(
         stimuli,
         responses,
         left_on='onset',
@@ -38,18 +53,41 @@ def preprocess_events(events_raw: pd.DataFrame) -> pd.DataFrame:
         tolerance=5.0
     )
 
-    merged['RT'] = merged['onset_resp'] - merged['onset']
+    # Calculate reaction time
+    events_cleaned['RT'] = (
+        events_cleaned['onset_resp'] - events_cleaned['onset']
+    )
 
-    if 'old_new' in merged.columns:
-        merged['correct'] = (
-            ((merged['trial_type'] == 'RECOG_TARGET') & (merged['old_new'] == 'OLD')) |
-            ((merged['trial_type'] == 'RECOG_LURE')   & (merged['old_new'] == 'NEW'))
-        ).astype(int)
-    else:
-        merged['correct'] = np.nan
-        print("  ⚠ 'old_new' column not found, 'correct' is set to NaN.")
+    # Remove trials without responses
+    n_before = len(events_cleaned)
 
-    return merged
+    events_cleaned = events_cleaned.dropna(
+        subset=['onset_resp']
+    ).reset_index(drop=True)
+
+    n_dropped = n_before - len(events_cleaned)
+
+    if n_dropped > 0:
+        print(f"Trials zonder response geskipt: {n_dropped}")
+
+    # Determine correctness
+    events_cleaned['correct'] = (
+        (
+            (events_cleaned['trial_type'] == 'RECOG_TARGET') &
+            (events_cleaned['recog_resp'] == 1)
+        ) |
+        (
+            (events_cleaned['trial_type'] == 'RECOG_LURE') &
+            (events_cleaned['recog_resp'] == 0)
+        )
+    ).astype(int)
+
+    # Keep only relevant columns
+    events_cleaned = events_cleaned[
+        ['trial_type', 'onset', 'onset_resp', 'RT', 'correct']
+    ]
+
+    return events_cleaned
 
 
 def filter_events(events: pd.DataFrame) -> tuple[pd.DataFrame | None, str | None]:

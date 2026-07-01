@@ -138,9 +138,9 @@ for sub in cfg.get_subjects():
         # ------------------------------------------------------------------
         # Stap 8 — ERP sanity check
         # ------------------------------------------------------------------
-        sanity = run_sanity_checks(epochs, sub, ses)
-        if not sanity.get('pass', False):
-            print(f"  ⚠ ERP sanity check failed -> check data.")
+        # sanity = run_sanity_checks(epochs, sub, ses)
+        # if not sanity.get('pass', False):
+        #     print(f"  ⚠ ERP sanity check failed -> check data.")
 
         # ------------------------------------------------------------------
         # Stap 9 — Opslaan

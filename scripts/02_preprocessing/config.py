@@ -91,7 +91,7 @@ MIN_TRIALS      = 20
 # ---------------------------
 BAD_CH_SD_FACTOR       = 5      # drift: kanaalgemiddelde > N × SD
 BAD_CH_AMP_THRESH      = 500e-6 # V — amplitude drempel
-BAD_CH_AMP_FRAC        = 0.20   # fractie tijdstappen boven drempel
+BAD_CH_AMP_FRAC        = 0.2   # fractie tijdstappen boven drempel
 BAD_CH_VAR_SD_FACTOR   = 3      # variantie: kanaal-SD > N × SD
 BAD_CH_EPOCH_THRESHOLD = 0.10   # epoch-fractie voordat kanaal geïnterpoleerd wordt
 
